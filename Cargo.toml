@@ -4,19 +4,9 @@ members = [
     "spring",
     "spring-macros",
     "spring-web",
-    "spring-grpc",
-    "spring-job",
-    "spring-redis",
-    "spring-sqlx",
-    "spring-postgres",
-    "spring-sea-orm",
-    "spring-stream",
-    "spring-mail",
-    "spring-opentelemetry",
-    "spring-opendal",
-    "examples/*",
+    "examples/hot-reloading",
 ]
-default-members = ["spring", "spring-*"]
+default-members = ["spring"]
 exclude = ["examples/**"]
 
 [workspace.package]
