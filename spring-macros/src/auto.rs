@@ -8,12 +8,14 @@ use syn::{ItemFn, Stmt, Token};
 struct ConfigArgs {
     route: bool,
     job: bool,
+    hot_reload: bool,
 }
 
 impl syn::parse::Parse for ConfigArgs {
     fn parse(args: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut route = false;
         let mut job = false;
+        let mut hot_reload = false;
 
         while !args.is_empty() {
             let ident = args.parse::<syn::Ident>().map_err(|mut err| {
@@ -30,13 +32,16 @@ impl syn::parse::Parse for ConfigArgs {
             if ident == "JobConfigurator" {
                 job = true;
             }
+            if ident == "HotReload" {
+                hot_reload = true;
+            }
             if !args.peek(Token![,]) {
                 break;
             }
             args.parse::<Token![,]>()?;
         }
 
-        Ok(ConfigArgs { route, job })
+        Ok(ConfigArgs { route, job, hot_reload })
     }
 }
 

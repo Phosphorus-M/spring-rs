@@ -278,6 +278,10 @@ impl ToTokens for Route {
             debug,
         } = self;
 
+        let uuid = uuid::Uuid::now_v7().simple().to_string();
+        let struct_name = format!("{}_{}", name, uuid);
+        let name = syn::Ident::new(&struct_name, Span::call_site());
+
         #[allow(unused_variables)] // used when force-pub feature is disabled
         let vis = &ast.vis;
 
@@ -309,8 +313,15 @@ impl ToTokens for Route {
                 #vis #sig #block
             }
         } else {
+            println!("Using handler function as-is: {:?}", name);
+
+            let mut ast = ast.clone();
+            ast.sig.ident = syn::Ident::new(&format!("{}", name), Span::call_site());
+
             quote! { #ast }
         };
+
+        println!("Generating struct: {:?}", handler_fn);
 
         let stream = quote! {
             #(#doc_attributes)*

@@ -35,8 +35,13 @@ macro_rules! submit_typed_handler {
 /// auto_config
 pub fn auto_router() -> Router {
     let mut router = Router::new();
+    println!("Auto configuring typed routes...");
+    let something = inventory::iter::<&dyn TypedHandlerRegistrar>.into_iter().count();
+    println!("Found {} typed handlers", something);
+
     for handler in inventory::iter::<&dyn TypedHandlerRegistrar> {
         router = handler.install_route(router);
     }
+    println!("Go next");
     router
 }

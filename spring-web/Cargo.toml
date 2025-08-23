@@ -29,6 +29,8 @@ tower-http = { workspace = true, features = ["full"] }
 byte-unit = { workspace = true, features = ["serde"] }
 schemars = { workspace = true }
 inventory = { workspace = true }
+libc = { workspace = true }
+socket2 = { workspace = true }
 
 [dev-dependencies]
 spring-sqlx = { path = "../spring-sqlx" }
