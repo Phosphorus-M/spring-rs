@@ -37,18 +37,6 @@ pub use axum::routing::MethodRouter;
 /// Router with AppState
 pub use axum::Router;
 
-// trait RemoveRoute {
-//     fn remove_route(self, path: &str, method: MethodFilter) -> Option<()>;
-// }
-
-// impl RemoveRoute for Router {
-//     fn remove_route(self, path: &str, method: MethodFilter) -> Option<()> {
-//         self.into_inner
-//     }
-// }
-
-
-
 use anyhow::Context;
 use axum::Extension;
 use config::ServerConfig;
@@ -62,113 +50,7 @@ use spring::{
     error::Result,
     plugin::Plugin,
 };
-use std::{collections::HashMap, net::SocketAddr, ops::Deref, sync::{Arc, LazyLock, Mutex}};
-
-use crate::handler::TypedHandlerRegistrar;
-
-static HOT_RELOAD_PORTS: LazyLock<Mutex<HashMap<SocketAddr, bool>>> = 
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
-async fn get_or_create_listener(addr: SocketAddr) -> Result<tokio::net::TcpListener> {
-    let socket = if addr.is_ipv4() {
-        tokio::net::TcpSocket::new_v4()
-    } else {
-        tokio::net::TcpSocket::new_v6()
-    }.context("Failed to create TCP socket")?;
-    
-    socket.set_reuseaddr(true).context("Failed to set SO_REUSEADDR")?;
-    
-    #[cfg(unix)]
-    {
-        use std::os::unix::io::AsRawFd;
-        let fd = socket.as_raw_fd();
-        
-        unsafe {
-            let enable: libc::c_int = 1;
-            let result = libc::setsockopt(
-                fd,
-                libc::SOL_SOCKET,
-                libc::SO_REUSEPORT,
-                &enable as *const _ as *const libc::c_void,
-                std::mem::size_of_val(&enable) as libc::socklen_t,
-            );
-            
-            if result != 0 {
-                tracing::warn!("Failed to set SO_REUSEPORT, continuing without it");
-            } else {
-                tracing::debug!("SO_REUSEPORT enabled for hot reload compatibility");
-            }
-        }
-    }
-    
-    match socket.bind(addr) {
-        Ok(()) => {
-            let listener = socket.listen(1024).context("Failed to listen on socket")?;
-            
-            let mut ports = HOT_RELOAD_PORTS.lock().unwrap();
-            ports.insert(addr, true);
-            
-            tracing::info!("🆕 Created TCP listener for hot reload: {addr}");
-            Ok(listener)
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
-            let is_tracked = {
-                let ports = HOT_RELOAD_PORTS.lock().unwrap();
-                ports.contains_key(&addr)
-            };
-                
-            if is_tracked {
-                tracing::info!("♻️ Port {addr} tracked for hot reload, attempting forceful bind");
-                
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                
-                let socket = if addr.is_ipv4() {
-                    tokio::net::TcpSocket::new_v4()
-                } else {
-                    tokio::net::TcpSocket::new_v6()
-                }.context("Failed to create TCP socket")?;
-                
-                socket.set_reuseaddr(true).context("Failed to set SO_REUSEADDR")?;
-                
-                #[cfg(unix)]
-                {
-                    use std::os::unix::io::AsRawFd;
-                    let fd = socket.as_raw_fd();
-                    
-                    unsafe {
-                        let enable: libc::c_int = 1;
-                        libc::setsockopt(
-                            fd,
-                            libc::SOL_SOCKET,
-                            libc::SO_REUSEPORT,
-                            &enable as *const _ as *const libc::c_void,
-                            std::mem::size_of_val(&enable) as libc::socklen_t,
-                        );
-                    }
-                }
-                
-                match socket.bind(addr) {
-                    Ok(()) => {
-                        let listener = socket.listen(1024).context("Failed to listen on socket")?;
-                        tracing::info!("♻️ Successfully rebound TCP listener for hot reload: {addr}");
-                        Ok(listener)
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to rebind for hot reload: {e}");
-                        Err(anyhow::Error::new(e).context(format!("bind tcp listener failed:{addr}")).into())
-                    }
-                }
-            } else {
-                tracing::error!("Port {addr} already in use and not tracked for hot reload");
-                Err(anyhow::Error::new(e).context(format!("bind tcp listener failed:{addr}")).into())
-            }
-        }
-        Err(e) => {
-            tracing::error!("Failed to bind TCP listener: {e}");
-            Err(anyhow::Error::new(e).context(format!("bind tcp listener failed:{addr}")).into())
-        }
-    }
-}
+use std::{net::SocketAddr, ops::Deref, sync::Arc};
 
 /// Routers collection
 pub type Routers = Vec<Router>;
@@ -181,8 +63,6 @@ pub trait WebConfigurator {
 
 impl WebConfigurator for AppBuilder {
     fn add_router(&mut self, router: Router) -> &mut Self {
-        println!("Adding router to AppBuilder");
-        tracing::info!("Adding router to AppBuilder");
         if let Some(routers) = self.get_component_ref::<Routers>() {
             unsafe {
                 let raw_ptr = ComponentRef::into_raw(routers);
@@ -218,7 +98,6 @@ impl Plugin for WebPlugin {
         let mut router: Router = match routers {
             Some(rs) => {
                 let mut router = Router::new();
-                tracing::info!("Collected {} routers", rs.deref().len());
                 for r in rs.deref().iter() {
                     router = router.merge(r.to_owned());
                 }
@@ -242,15 +121,17 @@ impl WebPlugin {
     async fn schedule(app: Arc<App>, config: ServerConfig) -> Result<String> {
         let router = app.get_expect_component::<Router>();
 
-        // 2. bind tcp listener (with hot reload support)
+        // 2. bind tcp listener
         let addr = SocketAddr::from((config.binding, config.port));
-        let listener = get_or_create_listener(addr).await?;
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .with_context(|| format!("bind tcp listener failed:{addr}"))?;
+        tracing::info!("bind tcp listener: {addr}");
 
         // 3. axum server
         let router = router.layer(Extension(AppState { app }));
 
         tracing::info!("axum server started");
-        
         if config.connect_info {
             // with client connect info
             let service = router.into_make_service_with_connect_info::<SocketAddr>();

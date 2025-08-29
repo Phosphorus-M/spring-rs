@@ -561,18 +561,31 @@ pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
     let fn_vis = input.vis;
     let _fn_sig = input.sig;
 
-    let output = quote! {
-        async fn __internal_main() {
-            #fn_body
-        }
+    let output = if cfg!(feature = "hot-reload") {
+        quote! {
+            async fn __internal_main() {
+                #fn_body
+            }
 
-        #(#fn_attrs)*
-        #fn_vis fn main() {
-            ::tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .expect("Failed building the Runtime")
-                .block_on(dioxus_devtools::serve_subsecond(__internal_main));
+            #(#fn_attrs)*
+            #fn_vis fn main() {
+                ::tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .expect("Failed building the Runtime")
+                    .block_on(dioxus_devtools::serve_subsecond(__internal_main));
+            }
+        }
+    } else {
+        quote! {
+            #(#fn_attrs)*
+            #fn_vis fn main() {
+                ::tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .expect("Failed building the Runtime")
+                    .block_on( async #fn_body );
+            }
         }
     };
     output.into()

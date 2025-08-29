@@ -9,6 +9,10 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+hot-reload = ["spring-macros/hot-reload"]
+
 [dependencies]
 spring-macros = { path = "../spring-macros", version = "0.4" }
 anyhow = { workspace = true }

@@ -277,8 +277,9 @@ impl ToTokens for Route {
             doc_attributes,
             debug,
         } = self;
-
+        
         let uuid = uuid::Uuid::now_v7().simple().to_string();
+        let original_name = name.to_string();
         let struct_name = format!("{}_{}", name, uuid);
         let name = syn::Ident::new(&struct_name, Span::call_site());
 
@@ -334,6 +335,10 @@ impl ToTokens for Route {
                     #registrations
 
                     __router
+                }
+
+                fn get_name(&self) -> &'static str {
+                    stringify!(#original_name)
                 }
             }
 

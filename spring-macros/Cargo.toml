@@ -12,6 +12,10 @@ repository.workspace = true
 [lib]
 proc-macro = true
 
+[features]
+default = []
+hot-reload = []
+
 [dependencies]
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
