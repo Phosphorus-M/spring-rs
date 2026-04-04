@@ -59,6 +59,10 @@ impl StreamListenerArgs {
         if let Some(fn_opts) = &opts.kafka_consumer_options {
             tokens.extend(quote! {.kafka_consumer_options(#fn_opts)})
         }
+        #[cfg(feature = "iggy")]
+        if let Some(fn_opts) = &opts.iggy_consumer_options {
+            tokens.extend(quote! {.iggy_consumer_options(#fn_opts)})
+        }
 
         tokens.extend(quote! {.consume(&[#(#topics),*], #name)});
 
@@ -111,6 +115,8 @@ struct ConsumerOpts {
     stdio_consumer_options: Option<Path>,
     redis_consumer_options: Option<Path>,
     kafka_consumer_options: Option<Path>,
+    #[cfg(feature = "iggy")]
+    iggy_consumer_options: Option<Path>,
 }
 
 impl ConsumerOpts {
@@ -121,6 +127,8 @@ impl ConsumerOpts {
         let mut stdio_consumer_options = None;
         let mut redis_consumer_options = None;
         let mut kafka_consumer_options = None;
+        #[cfg(feature = "iggy")]
+        let mut iggy_consumer_options = None;
         for pair in pairs {
             if pair.path.is_ident("mode") {
                 if let syn::Expr::Lit(syn::ExprLit {
@@ -184,10 +192,25 @@ impl ConsumerOpts {
                         "kafka_consumer_options must be function path",
                     ));
                 }
+            } else if pair.path.is_ident("iggy_consumer_options") {
+                #[cfg(feature = "iggy")]
+                if let syn::Expr::Path(syn::ExprPath { path, .. }) = pair.value {
+                    iggy_consumer_options = Some(path)
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        pair.path,
+                        "iggy_consumer_options must be function path",
+                    ));
+                }
+                #[cfg(not(feature = "iggy"))]
+                return Err(syn::Error::new_spanned(
+                    pair.path,
+                    "iggy_consumer_options requires the 'iggy' feature to be enabled",
+                ));
             } else {
                 return Err(syn::Error::new_spanned(
                     pair.path,
-                    "Unknown attribute key is specified; allowed: mode,group_id,file_consumer_options,stdio_consumer_options,redis_consumer_options,kafka_consumer_options",
+                    "Unknown attribute key is specified; allowed: mode,group_id,file_consumer_options,stdio_consumer_options,redis_consumer_options,kafka_consumer_options,iggy_consumer_options",
                 ));
             }
         }
@@ -198,6 +221,8 @@ impl ConsumerOpts {
             stdio_consumer_options,
             redis_consumer_options,
             kafka_consumer_options,
+            #[cfg(feature = "iggy")]
+            iggy_consumer_options,
         })
     }
 }

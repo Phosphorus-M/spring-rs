@@ -5,6 +5,8 @@ use crate::{
 use anyhow::Context;
 #[cfg(feature = "file")]
 use sea_streamer::file::FileConsumerOptions;
+#[cfg(feature = "iggy")]
+use sea_streamer::iggy::IggyConsumerOptions;
 #[cfg(feature = "kafka")]
 use sea_streamer::kafka::KafkaConsumerOptions;
 #[cfg(feature = "redis")]
@@ -110,6 +112,14 @@ impl ConsumerOpts {
         F: FnOnce(&mut FileConsumerOptions) + Send + Sync + 'static,
     {
         self.0.set_file_consumer_options(func);
+        self
+    }
+    #[cfg(feature = "iggy")]
+    pub fn iggy_consumer_options<F>(mut self, func: F) -> Self
+    where
+        F: FnOnce(&mut IggyConsumerOptions) + Send + Sync + 'static,
+    {
+        self.0.set_iggy_consumer_options(func);
         self
     }
 

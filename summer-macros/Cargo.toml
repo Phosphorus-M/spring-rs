@@ -13,6 +13,7 @@ repository.workspace = true
 proc-macro = true
 
 [features]
+iggy = []
 socket_io = ["summer-web/socket_io"]
 sa-token = []
 

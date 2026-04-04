@@ -11,6 +11,8 @@ pub use consumer::{ConsumerOpts, Consumers};
 pub use sea_streamer;
 #[cfg(feature = "file")]
 pub use sea_streamer::file;
+#[cfg(feature = "iggy")]
+pub use sea_streamer::iggy;
 #[cfg(feature = "kafka")]
 pub use sea_streamer::kafka;
 #[cfg(feature = "redis")]

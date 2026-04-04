@@ -1,5 +1,7 @@
 #[cfg(feature = "file")]
 pub mod file;
+#[cfg(feature = "iggy")]
+pub mod iggy;
 #[cfg(feature = "kafka")]
 pub mod kafka;
 #[cfg(feature = "redis")]
@@ -30,6 +32,8 @@ pub struct StreamConfig {
     pub(crate) kafka: Option<kafka::KafkaOptions>,
     #[cfg(feature = "redis")]
     pub(crate) redis: Option<redis::RedisOptions>,
+    #[cfg(feature = "iggy")]
+    pub(crate) iggy: Option<iggy::IggyOptions>,
     #[cfg(feature = "stdio")]
     pub(crate) stdio: Option<stdio::StdioOptions>,
     #[cfg(feature = "file")]
@@ -47,6 +51,10 @@ impl StreamConfig {
         #[cfg(feature = "redis")]
         if let Some(redis) = &self.redis {
             _connect_options.set_redis_connect_options(|opts| redis.fill_connect_options(opts));
+        }
+        #[cfg(feature = "iggy")]
+        if let Some(iggy) = &self.iggy {
+            _connect_options.set_iggy_connect_options(|opts| iggy.fill_connect_options(opts));
         }
         #[cfg(feature = "stdio")]
         if let Some(stdio) = &self.stdio {
@@ -74,6 +82,12 @@ impl StreamConfig {
             consumer_options.set_redis_consumer_options(|opts| redis.fill_consumer_options(opts));
             return consumer_options;
         }
+        #[cfg(feature = "iggy")]
+        if let Some(iggy) = &self.iggy {
+            let mut consumer_options = iggy.new_consumer_options(_mode, _group);
+            consumer_options.set_iggy_consumer_options(|opts| iggy.fill_consumer_options(opts));
+            return consumer_options;
+        }
         #[cfg(feature = "stdio")]
         if let Some(stdio) = &self.stdio {
             let mut consumer_options = stdio.new_consumer_options(_mode, _group);
@@ -98,6 +112,10 @@ impl StreamConfig {
         #[cfg(feature = "redis")]
         if let Some(redis) = &self.redis {
             _producer_options.set_redis_producer_options(|opts| redis.fill_producer_options(opts));
+        }
+        #[cfg(feature = "iggy")]
+        if let Some(iggy) = &self.iggy {
+            _producer_options.set_iggy_producer_options(|opts| iggy.fill_producer_options(opts));
         }
         #[cfg(feature = "stdio")]
         if let Some(stdio) = &self.stdio {
