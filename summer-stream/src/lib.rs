@@ -152,7 +152,19 @@ impl Producer {
         Self(Arc::new(producer))
     }
 
-    #[cfg(feature = "json")]
+    #[cfg(all(feature = "json", feature = "iggy"))]
+    pub async fn send_json<T: Serialize>(
+        &self,
+        stream_key: Option<&str>,
+        topic_key: &str,
+        payload: T,
+    ) -> Result<MessageHeader> {
+        let json = serde_json::to_string(&payload).context("json serialize failed")?;
+        self.send_to(stream_key, topic_key, json.as_str()).await
+    }
+
+
+    #[cfg(all(feature = "json", not(feature = "iggy")))]
     pub async fn send_json<T: Serialize>(
         &self,
         stream_key: &str,
@@ -162,6 +174,7 @@ impl Producer {
         self.send_to(stream_key, json.as_str()).await
     }
 
+    #[cfg(not(feature = "iggy"))]
     pub async fn send_to<S: Buffer>(&self, stream_key: &str, payload: S) -> Result<MessageHeader> {
         let producer_stream_key = StreamKey::new(stream_key)
             .with_context(|| format!("producer stream key \"{stream_key}\" is valid"))?;
@@ -173,6 +186,26 @@ impl Producer {
             .await
             .with_context(|| {
                 format!("await response for sending stream key failed:{stream_key}")
+            })?;
+
+        Ok(header)
+    }
+
+    #[cfg(feature = "iggy")]
+    pub async fn send_to<S: Buffer>(&self, stream_key: Option<&str>, topic_key: &str, payload: S) -> Result<MessageHeader> {
+        let producer_stream_key = stream_key.map(StreamKey::new).transpose()
+            .with_context(|| format!("producer stream key \"{stream_key:?}\" is valid"))?;
+
+        let topic_key = StreamKey::new(topic_key).with_context(|| format!("producer topic key \"{topic_key}\" is valid"))?;
+
+
+        let header = self
+            .0
+            .send_to(producer_stream_key.as_ref(), &topic_key, payload)
+            .with_context(|| format!("send to stream key failed: {}", stream_key.unwrap_or("unnamed")))?
+            .await
+            .with_context(|| {
+                format!("await response for sending stream key failed: {}", stream_key.unwrap_or("unnamed"))
             })?;
 
         Ok(header)

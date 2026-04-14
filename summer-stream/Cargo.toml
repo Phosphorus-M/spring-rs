@@ -22,7 +22,7 @@ inventory = { workspace = true }
 
 [features]
 default = ["sea-streamer/runtime-tokio", "sea-streamer/socket"]
-iggy = ["sea-streamer/iggy"]
+iggy = ["sea-streamer/iggy", "summer-macros/iggy"]
 kafka = ["sea-streamer/kafka"]
 redis = ["sea-streamer/redis"]
 file = ["sea-streamer/file"]

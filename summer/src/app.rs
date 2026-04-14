@@ -314,19 +314,21 @@ impl AppBuilder {
         let app = self.build_app();
 
         let schedulers = std::mem::take(&mut self.schedulers);
-        let mut handles = vec![];
+        let mut set = tokio::task::JoinSet::new();
         for task in schedulers {
             let poll_future = task(app.clone());
             let poll_future = Box::into_pin(poll_future);
-            handles.push(tokio::spawn(poll_future));
+            set.spawn(poll_future);
         }
 
-        while let Some(handle) = handles.pop() {
-            match handle.await? {
+        if let Some(result) = set.join_next().await {
+            match result? {
                 Err(e) => log::error!("{e:?}"),
                 Ok(msg) => log::info!("scheduled result: {msg}"),
             }
         }
+
+        set.abort_all();
 
         // FILO: The hooks added by the plugin built first should be executed later
         while let Some(hook) = self.shutdown_hooks.pop() {

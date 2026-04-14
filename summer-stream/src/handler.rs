@@ -17,16 +17,25 @@ pub trait Handler<T>: Clone + Send + Sized + 'static {
     fn call(self, msg: SeaMessage, app: Arc<App>) -> Self::Future;
 }
 
+fn call_and_discard_output<Fut>(future: Fut) -> Pin<Box<dyn Future<Output = ()> + Send>>
+where
+    Fut: Future + Send + 'static,
+{
+    Box::pin(async move {
+        let _ = future.await;
+    })
+}
+
 /// no args handler impl
 impl<F, Fut> Handler<()> for F
 where
     F: FnOnce() -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
+    Fut: Future + Send + 'static,
 {
     type Future = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     fn call(self, _msg: SeaMessage, _app: Arc<App>) -> Self::Future {
-        Box::pin(self())
+        call_and_discard_output(self())
     }
 }
 
@@ -60,7 +69,7 @@ macro_rules! impl_handler {
         impl<F, Fut, $($ty,)*> Handler<($($ty,)*)> for F
         where
             F: FnOnce($($ty,)*) -> Fut + Clone + Send + 'static,
-            Fut: Future<Output = ()> + Send + 'static,
+            Fut: Future + Send + 'static,
             $( $ty: FromMsg + Send, )*
         {
             type Future = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -69,7 +78,7 @@ macro_rules! impl_handler {
                 $(
                     let $ty = $ty::from_msg(&msg, &app);
                 )*
-                Box::pin(self($($ty,)*))
+                call_and_discard_output(self($($ty,)*))
             }
         }
     };

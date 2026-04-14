@@ -67,7 +67,7 @@ impl StreamConfig {
         _connect_options
     }
 
-    pub fn new_consumer_options(&self, ConsumerOpts(opts): ConsumerOpts) -> SeaConsumerOptions {
+    pub fn new_consumer_options(&self, ConsumerOpts(mut opts): ConsumerOpts) -> SeaConsumerOptions {
         let _mode = opts.mode().ok();
         let _group = opts.consumer_group().ok();
         #[cfg(feature = "kafka")]
@@ -84,9 +84,7 @@ impl StreamConfig {
         }
         #[cfg(feature = "iggy")]
         if let Some(iggy) = &self.iggy {
-            let mut consumer_options = iggy.new_consumer_options(_mode, _group);
-            consumer_options.set_iggy_consumer_options(|opts| iggy.fill_consumer_options(opts));
-            return consumer_options;
+            opts.set_iggy_consumer_options(|o| iggy.fill_consumer_options(o));
         }
         #[cfg(feature = "stdio")]
         if let Some(stdio) = &self.stdio {

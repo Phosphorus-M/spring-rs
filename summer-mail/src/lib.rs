@@ -23,6 +23,8 @@ use summer::config::ConfigRegistry;
 use summer::plugin::MutableComponentRegistry;
 use summer::{app::AppBuilder, error::Result, plugin::Plugin};
 
+use crate::config::SmtpSecurity;
+
 pub type TokioMailerTransport = lettre::AsyncSmtpTransport<Tokio1Executor>;
 pub type StubMailerTransport = lettre::transport::stub::AsyncStubTransport;
 
@@ -99,12 +101,14 @@ impl Plugin for MailPlugin {
 
 impl MailPlugin {
     fn build_smtp_transport(config: &SmtpTransportConfig) -> Result<TokioMailerTransport> {
-        let mut transport_builder = if config.secure {
-            TokioMailerTransport::relay(&config.host)
+        let mut transport_builder = match config.secure {
+            SmtpSecurity::None => TokioMailerTransport::builder_dangerous(&config.host).port(config.port),
+            SmtpSecurity::StartTls => TokioMailerTransport::starttls_relay(&config.host)
+                .with_context(|| format!("build mailer failed: {}", config.host))?
+                .port(config.port),
+            SmtpSecurity::Tls => TokioMailerTransport::relay(&config.host)
                 .with_context(|| format!("build mailer failed: {}", config.host))?
                 .port(config.port)
-        } else {
-            TokioMailerTransport::builder_dangerous(&config.host).port(config.port)
         };
 
         if let Some(auth) = config.auth.as_ref() {

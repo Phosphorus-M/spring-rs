@@ -29,8 +29,7 @@ pub struct SmtpTransportConfig {
     /// SMTP port
     pub port: u16,
     /// Enable TLS
-    #[serde(default = "bool::default")]
-    pub secure: bool,
+    pub secure: SmtpSecurity,
     /// Auth SMTP server
     pub auth: Option<MailerAuth>,
 }
@@ -42,4 +41,13 @@ pub struct MailerAuth {
     pub user: String,
     /// Password
     pub password: String,
+}
+
+#[derive(Debug, Clone, JsonSchema, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SmtpSecurity {
+    #[default]
+    None,
+    StartTls,
+    Tls, // SMTPS (465)
 }
