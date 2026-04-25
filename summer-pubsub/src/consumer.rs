@@ -45,10 +45,6 @@ pub struct Consumer {
 pub struct ConsumerOpts;
 
 impl Consumer {
-    pub fn default() -> ConsumerOpts {
-        ConsumerOpts
-    }
-
     pub(crate) fn new_instance(&self, project_id: &str) -> ConsumerInstance {
         ConsumerInstance {
             subscription: resolve_subscription(project_id, self.subscription_literal),

@@ -86,7 +86,7 @@ impl ToTokens for PubsubListener {
                     #ast
 
                     consumers.add_consumer(
-                        ::summer_pubsub::consumer::Consumer::default()
+                        ::summer_pubsub::consumer::ConsumerOpts::default()
                             .consume(#subscription, #name)
                     )
                 }
