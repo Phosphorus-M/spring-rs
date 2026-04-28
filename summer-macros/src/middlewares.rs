@@ -182,7 +182,10 @@ fn collect_and_strip_route_info(
     Ok(route_info)
 }
 
-fn extract_route_info_from_function(function: &syn::ItemFn) -> syn::Result<Vec<RouteInfo>> {
+fn extract_route_info_from_function(
+    function: &syn::ItemFn,
+    function_middlewares: &[syn::Expr],
+) -> syn::Result<Vec<RouteInfo>> {
     let mut route_info = Vec::new();
     let doc_attributes = extract_doc_attributes(&function.attrs);
 
@@ -191,7 +194,7 @@ fn extract_route_info_from_function(function: &syn::ItemFn) -> syn::Result<Vec<R
         if let Some(route) = process_route_attribute(
             attr,
             &function.sig.ident,
-            &[],
+            function_middlewares,
             &doc_attributes,
             fn_ref,
         )? {
@@ -252,11 +255,18 @@ impl OpenApiCodegen {
         };
         let (input_tys, output_ty) = crate::utils::extract_fn_types(ast);
 
-        let input_gen = if input_tys.is_empty() {
+        let middleware_input_calls: Vec<TokenStream2> = route
+            .function_middlewares
+            .iter()
+            .filter_map(Self::middleware_operation_input_call)
+            .collect();
+
+        let input_gen = if input_tys.is_empty() && middleware_input_calls.is_empty() {
             quote! {}
         } else {
             quote! {
                 #(<#input_tys as ::summer_web::aide::OperationInput>::operation_input(ctx, &mut __operation);)*
+                #(#middleware_input_calls)*
             }
         };
 
@@ -270,6 +280,42 @@ impl OpenApiCodegen {
         };
 
         (input_gen, output_gen)
+    }
+
+    fn middleware_operation_input_call(middleware: &syn::Expr) -> Option<TokenStream2> {
+        match middleware {
+            syn::Expr::Path(expr_path) => {
+                let middleware_ty = &expr_path.path;
+                Some(quote! {
+                    <#middleware_ty as ::summer_web::aide::OperationInput>::operation_input(ctx, &mut __operation);
+                })
+            }
+            syn::Expr::Call(call) if call.args.is_empty() => {
+                let syn::Expr::Path(expr_path) = call.func.as_ref() else {
+                    return None;
+                };
+
+                let mut middleware_ty = expr_path.path.clone();
+                let is_new_ctor = middleware_ty
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "new");
+
+                if !is_new_ctor {
+                    return None;
+                }
+
+                middleware_ty.segments.pop();
+                if middleware_ty.segments.is_empty() {
+                    return None;
+                }
+
+                Some(quote! {
+                    <#middleware_ty as ::summer_web::aide::OperationInput>::operation_input(ctx, &mut __operation);
+                })
+            }
+            _ => None,
+        }
     }
 
     /// Generate the `api_route_docs_with` binding tokens for a given router ident.
@@ -552,7 +598,8 @@ fn handle_function_middlewares(
     function: &syn::ItemFn,
 ) -> syn::Result<TokenStream> {
     let mut function_copy = function.clone();
-    let route_info = extract_route_info_from_function(&function_copy)?;
+    let function_middlewares: Vec<syn::Expr> = middleware_list.iter().cloned().collect();
+    let route_info = extract_route_info_from_function(&function_copy, &function_middlewares)?;
 
     if route_info.is_empty() {
         return Err(syn::Error::new(

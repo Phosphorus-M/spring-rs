@@ -97,6 +97,38 @@ fn modify_attribute_with_nest(attr: &syn::Attribute, nest_path: &str) -> syn::At
 
 fn has_allowed_methods_in_nest(attr: &syn::Attribute) -> bool {
     Method::from_path(attr.path()).is_ok()
+        || attr.path().is_ident("get_api")
+        || attr.path().is_ident("post_api")
+        || attr.path().is_ident("put_api")
+        || attr.path().is_ident("delete_api")
+        || attr.path().is_ident("head_api")
+        || attr.path().is_ident("options_api")
+        || attr.path().is_ident("trace_api")
+        || attr.path().is_ident("patch_api")
         || attr.path().is_ident("route")
+        || attr.path().is_ident("api_route")
         || attr.path().is_ident("ROUTE")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nest_prefixes_get_api_paths() {
+        let attr: syn::Attribute = syn::parse_quote!(#[get_api("/")]);
+        let modified = modify_attribute_with_nest(&attr, "/persons");
+
+        let args: RouteArgs = modified.parse_args().unwrap();
+        assert_eq!(args.path.value(), "/persons/");
+    }
+
+    #[test]
+    fn nest_prefixes_patch_api_paths() {
+        let attr: syn::Attribute = syn::parse_quote!(#[patch_api("/{id}")]);
+        let modified = modify_attribute_with_nest(&attr, "/persons");
+
+        let args: RouteArgs = modified.parse_args().unwrap();
+        assert_eq!(args.path.value(), "/persons/{id}");
+    }
 }
