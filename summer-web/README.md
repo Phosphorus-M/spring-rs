@@ -59,7 +59,7 @@ static = { enable = true, uri = "/static", path = "static", precompressed = true
 
 App implements the [WebConfigurator](https://docs.rs/summer-web/latest/summer_web/trait.WebConfigurator.html) feature, which can be used to specify routing configuration:
 
-```no_run, rust, linenos, hl_lines=6 10-18
+```rust,no_run,linenos,hl_lines=6 10-18
 use summer::App;
 use summer_web::{get, get_api};
 use summer_web::{WebPlugin, WebConfigurator, Router, axum::response::IntoResponse, handler::TypeRouter};
@@ -524,7 +524,9 @@ The Problem Details response will be formatted as:
   "status": 400,
   "detail": "A basic validation error occurred"
 }
-```### Automatic Instance URI Capture
+```
+
+### Automatic Instance URI Capture
 
 Problem Details automatically captures the current request URI and includes it in the `instance` field. This feature is enabled by default and requires no additional configuration:
 
