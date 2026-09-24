@@ -29,7 +29,8 @@ authors = ["holmofy"]
 repository = "https://github.com/summer-rs/summer-rs"
 
 [workspace.dependencies]
-aide = "0.16.0-alpha.2"
+# aide = "0.16.0-alpha.2"
+aide = { version = "0.16.0-alpha.4", path = "../aide/crates/aide", features = ["macros"] }
 anyhow = "1.0"
 apalis = "1.0.0-rc.6"
 apalis-redis = "1.0.0-rc.6"
